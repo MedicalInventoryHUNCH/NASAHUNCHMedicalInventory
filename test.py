@@ -18,7 +18,7 @@ OFFLINE_MODE = True
 
 
 def check_internet_connection():
-    """Check for an active internet connection."""
+   #Check for an active internet connection
     try:
         # Try connecting to a well-known DNS server (Google's 8.8.8.8) on port 53
         socket.create_connection(("8.8.8.8", 53), timeout=3)
@@ -29,8 +29,14 @@ def check_internet_connection():
 
 class InventoryManager:
     @staticmethod
+    def write_items(items):
+        with open(DATA_FILE, "w") as f:
+            for item in items:
+                f.write(json.dumps(item) + "\n")
+
+    @staticmethod
     def read_items():
-        """Read items from text file and return as list of dictionaries"""
+        #Read items from text file and return as list of dictionaries
         items = []
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, "r") as f:
@@ -56,7 +62,6 @@ class InventoryManager:
 
 
 class MongoDBManager:
-    # Initialize connection attributes to None
     cluster = None
     db = None
     collection = None
@@ -64,26 +69,53 @@ class MongoDBManager:
 
     @staticmethod
     def init_connection():
-        """Attempt to initialize a connection to MongoDB."""
         try:
-            # Attempt connection with a short timeout
             MongoDBManager.cluster = MongoClient(
                 "mongodb+srv://bernardorhyshunch:TakingInventoryIsFun@cluster0.jpb6w.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
                 serverSelectionTimeoutMS=3000
             )
-            # Test connection
             MongoDBManager.cluster.admin.command('ping')
             MongoDBManager.db = MongoDBManager.cluster["Inventory"]
             MongoDBManager.collection = MongoDBManager.db["Inventory"]
             MongoDBManager.offline_mode = False
             print("MongoDB connection established.")
+
+            # Start listening for changes
+            threading.Thread(target=MongoDBManager.listen_to_changes, daemon=True).start()
         except Exception as e:
             MongoDBManager.offline_mode = True
             print("Failed to connect to MongoDB:", e)
 
     @staticmethod
+    def listen_to_changes():
+        if MongoDBManager.offline_mode:
+            return
+
+        try:
+            with MongoDBManager.collection.watch() as stream:
+                for change in stream:
+                    print("Change detected in MongoDB:", change)
+                    MongoDBManager.update_txt_from_mongo()
+        except Exception as e:
+            print("Error listening to MongoDB changes:", e)
+
+    @staticmethod
+    def update_txt_from_mongo():
+        """Sync the text file with the latest MongoDB data."""
+        if MongoDBManager.offline_mode:
+            return
+
+        try:
+            items = list(
+                MongoDBManager.collection.find({}, {"_id": 1, "Item": 1, "Doses": 1, "Expiry": 1, "Description": 1}))
+            InventoryManager.write_items(items)
+            print("Text file updated from MongoDB changes.")
+        except Exception as e:
+            print("Error syncing text file with MongoDB:", e)
+
+    @staticmethod
     def sync_with_txt():
-        """Synchronize MongoDB collection with the contents of the text file if online."""
+        #Synchronize MongoDB collection with the contents of the text file if online.
         if MongoDBManager.offline_mode:
             return
         items = InventoryManager.read_items()
@@ -97,7 +129,7 @@ class MongoDBManager:
 
     @staticmethod
     def check_and_sync():
-        """Check for internet connectivity and update MongoDB if possible."""
+        #Check for internet connectivity and update MongoDB if possible.
         if check_internet_connection():
             if MongoDBManager.offline_mode:
                 # Attempt to initialize connection
@@ -113,7 +145,7 @@ class MongoDBManager:
 
 
 def background_sync():
-    """Background thread function that periodically checks connectivity and syncs data."""
+    #Background thread function that periodically checks connectivity and syncs data.
     while True:
         time.sleep(60)  # Check every 60 seconds
         MongoDBManager.check_and_sync()
@@ -206,6 +238,7 @@ class App(customtkinter.CTk):
             self, text="Medical Inventory System", text_color="White", font=("Arial", 24, "bold")
         )
         self.TitleLabel.grid(row=0, column=0, columnspan=3, pady=20)
+
 
         # Add Item Section
         self.AddItemFrame = customtkinter.CTkFrame(self, corner_radius=10)
@@ -325,7 +358,6 @@ class App(customtkinter.CTk):
         )
         self.DocumentTextbox.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
         self.DocumentTextbox.tag_config("highlight", background="#FE9000")
-
         # Initial display of documents
         self.refresh_document_display()
 
@@ -379,7 +411,9 @@ class App(customtkinter.CTk):
                 MongoDBManager.sync_with_txt()
             except Exception as e:
                 print(f"Error adding item: {e}")
+                messagebox.showerror("Error Adding Item", f"Error adding item: {e}")
         else:
+            messagebox.showerror("Missing Information", "Please fill in both name and amount fields.")
             print("Please fill in both name and amount fields.")
 
     def update_name_amount(self):
@@ -394,29 +428,40 @@ class App(customtkinter.CTk):
         item_to_update = next((item for item in items if item["Item"] == selected_item_name), None)
 
         if not item_to_update:
+            messagebox.showerror("Error Updating Item", "Item not found!")
             print("Item not found!")
             return
 
         if new_name:
             item_to_update["Item"] = new_name
         if new_amount:
-            item_to_update["Doses"] = int(new_amount)
+            try:
+                item_to_update["Doses"] = int(new_amount)
+            except ValueError as e:
+                messagebox.showerror("Error Updating Item", f"Invalid dose value: {e}")
+                print(f"Invalid dose value: {e}")
+                return
         if new_expiry:
             try:
                 expiry_date = datetime.datetime.strptime(new_expiry, "%m/%d/%Y")
                 item_to_update["Expiry"] = expiry_date.strftime("%m/%d/%Y")
             except ValueError:
+                messagebox.showerror("Error Updating Item", "Invalid expiry date format. Use MM/DD/YYYY.")
                 print("Invalid expiry date format")
                 return
         if new_description:
             item_to_update["Description"] = new_description
 
-        InventoryManager.write_items(items)
-        self.write_to_log("Update", f"Updated item '{original_name}'")
-        self.refresh_dropdown()
-        self.refresh_document_display()
-        # Attempt to sync with MongoDB (will sync only if online)
-        MongoDBManager.sync_with_txt()
+        try:
+            InventoryManager.write_items(items)
+            self.write_to_log("Update", f"Updated item '{original_name}'")
+            self.refresh_dropdown()
+            self.refresh_document_display()
+            # Attempt to sync with MongoDB (will sync only if online)
+            MongoDBManager.sync_with_txt()
+        except Exception as e:
+            print(f"Error updating item: {e}")
+            messagebox.showerror("Error Updating Item", f"Error updating item: {e}")
 
     def view_logs(self):
         if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
@@ -443,7 +488,7 @@ class App(customtkinter.CTk):
         MongoDBManager.sync_with_txt()
 
     def perform_search(self):
-        """Highlight documents containing the search query"""
+        #Highlight documents containing the search query
         query = self.SearchEntry.get().strip().lower()
         self.DocumentTextbox.configure(state="normal")
         self.DocumentTextbox.tag_remove("highlight", "1.0", "end")
@@ -464,7 +509,7 @@ class App(customtkinter.CTk):
         self.DocumentTextbox.configure(state="disabled")
 
     def refresh_document_display(self):
-        """Fetches and displays all documents from text file"""
+        #Fetches and displays all documents from text file
         try:
             self.DocumentTextbox.configure(state="normal")
             self.DocumentTextbox.delete("1.0", "end")

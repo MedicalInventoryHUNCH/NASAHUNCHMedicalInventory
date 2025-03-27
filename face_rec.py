@@ -102,7 +102,7 @@ def nfc_read():
         print("no id num data")
         return
 
-#iahuiehp[oiuytfyuip[outry]pewqwo8765eszx ,l;p0o98u7y6t5rewszx mlo9i87654wqazyuhjnmeqwasdzxresdijkm,inesdxsdz
+
 
 def check_value_with_timeout(timeout_seconds):
     print("Waiting for NFC tag with timeout...")
