@@ -4,7 +4,7 @@ import cv2
 import time
 import nfc
 from pymongo import MongoClient
-import ndef
+
 
 recently_scanned_tags = {}
 Tag_dedup = 2
@@ -12,7 +12,7 @@ cluster = MongoClient("mongodb+srv://bernardorhyshunch:TakingInventoryIsFun@clus
 db = cluster["Inventory"]
 collection1 = db["astro"]
 collection = db["Inventory"]
-clf = nfc.ContactlessFrontend('usb')
+clf = nfc.ContactlessFrontend('pcsc')
 
 class NFCReaderThread(threading.Thread):
     def __init__(self):
@@ -157,7 +157,7 @@ def main():
             # Load known faces
             # Capture and process one frame
             matches = capture_and_compare(cap, known_faces)
-            result = check_value_with_timeout(2)
+            result = check_value_with_timeout(5)
             print(matches)
 
             if matches:
