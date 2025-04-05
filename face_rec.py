@@ -5,7 +5,7 @@ import time
 import nfc
 from pymongo import MongoClient
 
-
+clf = nfc.ContactlessFrontend('usb')
 recently_scanned_tags = {}
 Tag_dedup = 2
 cluster = MongoClient("mongodb+srv://bernardorhyshunch:TakingInventoryIsFun@cluster0.jpb6w.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
@@ -75,48 +75,51 @@ def idnumber(tag_data):
 
 def nfc_read(stop_event):
     time.sleep(1)
-    with nfc.ContactlessFrontend('usb:072f:2200') as clf:
-        while not stop_event.is_set():
-            tag = clf.connect(rdwr=
-            {
-                'targets': ['106A'],
-                'on-connect' : lambda tag: False
-            },
-            terminate=lambda: stop_event.is_set(), timeout=0.1
 
-            )
+    while not stop_event.is_set():
+        tag = clf.connect(rdwr=
+        {
+            'targets': ['106A'],
+            'on-connect' : lambda tag: False
+        },
+       terminate=lambda: stop_event.is_set(), timeout=0.5
 
-            if tag is not None:
-                if not tag.ndef:
-                    print("no ndef data")
-                    return None
-                tag_data = tag.ndef.records
+        )
 
-            if tag is None:
-                continue
+        tag_data = tag.ndef.records
 
-            if tag_data is None:
-                print("no tag data")
-                return
+        if tag is not None:
+            if not tag.ndef:
+                print("no ndef data")
+                return None
 
-            id_num = idnumber(tag_data)
-            if id_num is not None:
-                current_time = time.time()
 
-                # Check if the tag was recently scanned
-                if id_num in recently_scanned_tags:
-                    last_scanned_time = recently_scanned_tags[id_num]
-                    if current_time - last_scanned_time < Tag_dedup:
-                        print(f"Tag {id_num} was already scanned recently. Ignoring duplicate...")
-                        return None
+        if tag is None:
+            continue
 
-                # Update the cache with the current scan time
-                recently_scanned_tags[id_num] = current_time
-                return id_num
-
-        if id_num is None:
-            print("no id num data")
+        if tag_data is None:
+            print("no tag data")
             return
+
+        id_num = idnumber(tag_data)
+        if id_num is not None:
+            current_time = time.time()
+
+            # Check if the tag was recently scanned
+            if id_num in recently_scanned_tags:
+                last_scanned_time = recently_scanned_tags[id_num]
+                if current_time - last_scanned_time < Tag_dedup:
+                    print(f"Tag {id_num} was already scanned recently. Ignoring duplicate...")
+                    return None
+
+            # Update the cache with the current scan time
+            recently_scanned_tags[id_num] = current_time
+            return id_num
+
+    if id_num is None:
+        print("no id num data")
+        return None
+    return None
 
 
 
@@ -212,6 +215,7 @@ def main():
             # Clean up
             cap.release()
             cv2.destroyAllWindows()
+            clf.close()
 
 if __name__ == "__main__":
     main()
