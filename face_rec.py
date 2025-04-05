@@ -12,17 +12,17 @@ cluster = MongoClient("mongodb+srv://bernardorhyshunch:TakingInventoryIsFun@clus
 db = cluster["Inventory"]
 collection1 = db["astro"]
 collection = db["Inventory"]
-clf = nfc.ContactlessFrontend('pcsc')
+
 
 class NFCReaderThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, stop_event):
         super().__init__()
         self.result = None
         self.error = None
-
+        self.stop_event = stop_event
     def run(self):
         try:
-            self.result = nfc_read()
+            self.result = nfc_read(self.stop_event)
         except Exception as e:
             self.error = e
 
@@ -73,34 +73,50 @@ def idnumber(tag_data):
     else:
         print("med unknown tag")
 
-def nfc_read():
-    tag = clf.connect(rdwr={'on-connect': lambda tag: False})
-    tag_data = tag.ndef.records
-    if tag_data is None:
-        print("no tag data")
-        return
+def nfc_read(stop_event):
+    time.sleep(1)
+    with nfc.ContactlessFrontend('usb:072f:2200') as clf:
+        while not stop_event.is_set():
+            tag = clf.connect(rdwr=
+            {
+                'targets': ['106A'],
+                'on-connect' : lambda tag: False
+            },
+            terminate=lambda: stop_event.is_set(), timeout=0.1
 
-    id_num = idnumber(tag_data)
-    if id_num is not None:
-        current_time = time.time()
+            )
 
-        # Check if the tag was recently scanned
-        if id_num in recently_scanned_tags:
-            last_scanned_time = recently_scanned_tags[id_num]
-            if current_time - last_scanned_time < Tag_dedup:
-                print(f"Tag {id_num} was already scanned recently. Ignoring duplicate...")
-                return None
+            if tag is not None:
+                if not tag.ndef:
+                    print("no ndef data")
+                    return None
+                tag_data = tag.ndef.records
 
-        # Update the cache with the current scan time
-        recently_scanned_tags[id_num] = current_time
+            if tag is None:
+                continue
 
-        # Perform the database update
-        collection.update_many({"_id": id_num}, {"$inc": {"Amount": -1}})
-        return id_num
+            if tag_data is None:
+                print("no tag data")
+                return
 
-    if id_num is None:
-        print("no id num data")
-        return
+            id_num = idnumber(tag_data)
+            if id_num is not None:
+                current_time = time.time()
+
+                # Check if the tag was recently scanned
+                if id_num in recently_scanned_tags:
+                    last_scanned_time = recently_scanned_tags[id_num]
+                    if current_time - last_scanned_time < Tag_dedup:
+                        print(f"Tag {id_num} was already scanned recently. Ignoring duplicate...")
+                        return None
+
+                # Update the cache with the current scan time
+                recently_scanned_tags[id_num] = current_time
+                return id_num
+
+        if id_num is None:
+            print("no id num data")
+            return
 
 
 
@@ -108,12 +124,16 @@ def check_value_with_timeout(timeout_seconds):
     print("Waiting for NFC tag with timeout...")
 
     # Start NFCReaderThread, which runs nfc_read() in the background
-    nfc_thread = NFCReaderThread()
+    stop_event = threading.Event()
+    nfc_thread = NFCReaderThread(stop_event)
     nfc_thread.start()  # Start running the thread
+
     nfc_thread.join(timeout_seconds)
 
     if nfc_thread.is_alive():
         print("NFC read timeout reached, stopping NFC read...")
+        stop_event.set()
+        nfc_thread.join()
         return None
 
     if nfc_thread.error:
@@ -145,7 +165,6 @@ def main():
         print("known faces loaded")
     except Exception as e:
         print(f"Error: {e}")
-        print("Exiting...")
         return
 
     while True:
@@ -169,6 +188,10 @@ def main():
                     if result is not None:
                         intmeds = result
                         if intmeds:
+                            collection.update_many(
+                                {"_id": intmeds},
+                               {"$inc": {"Amount": -1}
+                                })
                             db_edit_face(matches, intmeds)
                             print(intmeds)
                             time.sleep(2)
@@ -189,7 +212,6 @@ def main():
             # Clean up
             cap.release()
             cv2.destroyAllWindows()
-            clf.close()
 
 if __name__ == "__main__":
     main()
