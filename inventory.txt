@@ -1,7 +1,7 @@
-{"_id": 1, "Item": "tylenol (acetaminophen)", "Doses": 176, "Expiry": "12/31/2025", "Description": "An analgesic and antipyretic often used to relieve mild to moderate pain and fever"}
-{"_id": 2, "Item": "Ibuprofen", "Doses": 120, "Expiry": "09/28/2026", "Description": "A nonsteroidal anti-inflammatory drug (NSAID) used to relieve pain, reduce inflammation, and lower fever"}
-{"_id": 3, "Item": "Amoxicillin", "Doses": 81, "Expiry": "08/28/2026", "Description": "A commonly prescribed antibiotic for a variety of bacterial infections"}
-{"_id": 4, "Item": "Lisinopril", "Doses": 25, "Expiry": "07/14/2025", "Description": "An ACE inhibitor used primarily to treat high blood pressure and heart failure"}
-{"_id": 5, "Item": "Alprazolam", "Doses": 91, "Expiry": "10/08/2028", "Description": "A benzodiazepine used for the short-term relief of anxiety symptoms"}
-{"_id": 6, "Item": "Albuterol", "Doses": 76, "Expiry": "06/10/2029", "Description": "A bronchodilator used to treat asthma and chronic obstructive pulmonary disease (COPD)"}
-{"_id": 7, "Item": "Fluoxetine", "Doses": 163, "Expiry": "06/10/2029", "Description": "An SSRI antidepressant commonly used to treat depression, anxiety, and OCD"}
+{"_id": 1, "Item": "tylenol (acetaminophen)", "Doses": 100, "Expiry": "12/31/2025", "Description": "An analgesic and antipyretic often used to relieve mild to moderate pain and fever"}
+{"_id": 2, "Item": "Ibuprofen", "Doses": 100, "Expiry": "09/28/2026", "Description": "A nonsteroidal anti-inflammatory drug (NSAID) used to relieve pain, reduce inflammation, and lower fever"}
+{"_id": 3, "Item": "Amoxicillin", "Doses": 100, "Expiry": "08/28/2026", "Description": "A commonly prescribed antibiotic for a variety of bacterial infections"}
+{"_id": 4, "Item": "Lisinopril", "Doses": 100, "Expiry": "07/14/2025", "Description": "An ACE inhibitor used primarily to treat high blood pressure and heart failure"}
+{"_id": 5, "Item": "Alprazolam", "Doses": 100, "Expiry": "10/08/2028", "Description": "A benzodiazepine used for the short-term relief of anxiety symptoms"}
+{"_id": 6, "Item": "Albuterol", "Doses": 100, "Expiry": "06/10/2029", "Description": "A bronchodilator used to treat asthma and chronic obstructive pulmonary disease (COPD)"}
+{"_id": 7, "Item": "Fluoxetine", "Doses": 100, "Expiry": "06/10/2029", "Description": "An SSRI antidepressant commonly used to treat depression, anxiety, and OCD"}

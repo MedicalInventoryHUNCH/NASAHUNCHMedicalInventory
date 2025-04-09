@@ -90,14 +90,15 @@ class MongoDBManager:
     def listen_to_changes():
         if MongoDBManager.offline_mode:
             return
-
         try:
-            with MongoDBManager.collection.watch() as stream:
+            # include fullDocument so updates come with the full document
+            with MongoDBManager.collection.watch(full_document='updateLookup') as stream:
                 for change in stream:
                     print("Change detected in MongoDB:", change)
                     MongoDBManager.update_txt_from_mongo()
         except Exception as e:
             print("Error listening to MongoDB changes:", e)
+
 
     @staticmethod
     def update_txt_from_mongo():
@@ -211,6 +212,14 @@ class ToplevelWindow(customtkinter.CTkToplevel):
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
+
+          # keep track of the last modification time
+
+        try:
+            self._last_file_mtime = os.path.getmtime(DATA_FILE)
+        except FileNotFoundError:
+            self._last_file_mtime = None
+        self.after(2000, self._check_file_update)
 
         self.geometry("1024x600")  # Default size if not maximized
 
@@ -538,8 +547,23 @@ class App(customtkinter.CTk):
         else:
             self.state("normal")
 
+    def _check_file_update(self):
+        try:
+            mtime = os.path.getmtime(DATA_FILE)
+            if self._last_file_mtime is None or mtime != self._last_file_mtime:
+                self._last_file_mtime = mtime
+                self.refresh_dropdown()
+                self.refresh_document_display()
+        except Exception:
+            pass
+        finally:
+            self.after(2000, self._check_file_update)
 
-# Start the background sync thread (daemon thread so it exits with the app)
+
+# First, try to go online and start listening for changes right away
+MongoDBManager.init_connection()
+
+# Start the background sync thread (daemon so it exits with the app)
 threading.Thread(target=background_sync, daemon=True).start()
 
 app = App()
